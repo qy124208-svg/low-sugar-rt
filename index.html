@@ -37,6 +37,9 @@ var N_PRAC = { left: 2,  right: 2,  none: HAS_NONE ? 2 : 0 };    // 练习试次
 var FIXATION_MS = 500;     // 注视点时长(ms)
 var TIMEOUT_MS  = 2000;    // 图片停留时长(ms)，2秒内不点=视为"没看到"
 
+// 自动上传接口（CloudBase 云函数）。配好后把 URL 填这里；留空 = 只下载 CSV 不上传
+var COLLECT_URL = 'https://easy-damselfly-d6g57mucif82f0985-1525231912.ap-shanghai.app.tcloudbase.com/collect';
+
 /* ============================================================ */
 
 function getParam(name, fallback) {
@@ -60,10 +63,35 @@ function buildTrialList(counts) {
   return list;
 }
 
+// 自动上传到云端（CloudBase 云函数）；失败不影响本地 CSV 下载
+function uploadData() {
+  var test = jsPsych.data.get().filter({ phase: 'test' }).values();
+  var rows = test.map(function (t) {
+    return {
+      subject_id: t.subject_id || SUBJECT_ID,
+      trial_index: t.trial_index,
+      cond: t.cond,
+      rt: (t.rt === null || t.rt === undefined) ? null : Number(t.rt),
+      correct: !!t.correct,
+      clicked: !!t.clicked,
+      timed_out: !!t.timed_out,
+      img: t.img
+    };
+  });
+  fetch(COLLECT_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(rows)
+  }).then(function (r) { return r.json(); })
+    .then(function (res) { console.log('已上传到云端', res); })
+    .catch(function (e) { console.warn('自动上传失败（CSV 仍已下载，可手动收集）', e); });
+}
+
 var jsPsych = initJsPsych({
   on_finish: function () {
-    // 实验结束自动下载 CSV，被试保存后发给你
+    // 实验结束自动下载 CSV（兜底），同时尝试上传云端
     jsPsych.data.get().localSave('csv', '低糖实验数据_' + SUBJECT_ID + '.csv');
+    if (COLLECT_URL) uploadData();
   }
 });
 
