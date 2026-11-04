@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>低糖标签位置 · 反应时实验</title>
+<script src="https://unpkg.com/jspsych@7.3.4"></script>
+<script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@1.1.3"></script>
+<script src="https://unpkg.com/@jspsych/plugin-html-button-response@1.1.3"></script>
+<script src="https://unpkg.com/@jspsych/plugin-preload@1.1.3"></script>
+<link rel="stylesheet" href="https://unpkg.com/jspsych@7.3.4/css/jspsych.css">
+<style>
+  .jspsych-btn {
+    font-size: 30px !important;
+    padding: 24px 60px !important;
+    margin: 14px !important;
+    border-radius: 14px !important;
+    min-width: 180px;
+  }
+  html, body { touch-action: manipulation; }
+</style>
+</head>
+<body></body>
+<script>
+/* ==================== 配置区（只需改这里） ==================== */
+var IMG = {
+  left:  '减糖图标左边.png',
+  right: '减糖图标右边.png',
+  none:  '无标签.png'      // go/no-go 的"不点"试次，非常重要，务必补做
+};
+
+// 还没有"无标签.png"前先设 false（此时每张图都有标签，先测左/右逻辑）；
+// 补好图后改成 true，加入"无标签"的不点试次（防止被试看到就点）
+var HAS_NONE = false;
+
+var N_TEST = { left: 20, right: 20, none: HAS_NONE ? 20 : 0 };  // 正式试次
+var N_PRAC = { left: 2,  right: 2,  none: HAS_NONE ? 2 : 0 };    // 练习试次
+var FIXATION_MS = 500;     // 注视点时长(ms)
+var TIMEOUT_MS  = 2000;    // 图片停留时长(ms)，2秒内不点=视为"没看到"
+/* ============================================================ */
+
+function getParam(name, fallback) {
+  var p = new URLSearchParams(window.location.search);
+  return p.has(name) ? p.get(name) : fallback;
+}
+var SUBJECT_ID = getParam('id', '');
+
+function buildTrialList(counts) {
+  var defs = {
+    left:  { img: IMG.left,  cond: 'left' },
+    right: { img: IMG.right, cond: 'right' },
+    none:  { img: IMG.none,  cond: 'none' }
+  };
+  var list = [];
+  Object.keys(counts).forEach(function (k) {
+    for (var i = 0; i < counts[k]; i++) {
+      list.push({ img: defs[k].img, cond: defs[k].cond });
+    }
+  });
+  return list;
+}
+
+var jsPsych = initJsPsych({
+  on_finish: function () {
+    jsPsych.data.get().localSave('csv', '低糖实验数据_' + SUBJECT_ID + '.csv');
+  }
+});
+
+/* ---------- 组件 ---------- */
+
+var fixation = {
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: '<div style="font-size:60px;color:#333">+</div>',
+  trial_duration: FIXATION_MS,
+  choices: "NO_KEYS",
+  data: { phase: 'fixation' }
+};
+
+function makeStim(isPractice) {
+  return {
+    type: jsPsychHtmlButtonResponse,
+    stimulus: function () {
+      return '<img src="' + jsPsych.timelineVariable('img') +
+             '" style="max-width:80vw;max-height:50vh;">';
+    },
+    choices: ['有低糖'],     // 单按钮：看到「低糖」就点
+    trial_duration: TIMEOUT_MS,
+    response_ends_trial: true,
+    data: function () {
+      return {
+        phase: isPractice ? 'practice' : 'test',
+        cond: jsPsych.timelineVariable('cond'),
+        img: jsPsych.timelineVariable('img'),
+        subject_id: SUBJECT_ID
+      };
+    },
+    on_finish: function (data) {
+      var clicked = (data.response !== null);
+      data.clicked = clicked;
+      data.timed_out = !clicked;
+      // go 试次(left/right)：点了=对；no-go 试次(none)：不点=对
+      data.correct = (data.cond === 'none') ? !clicked : clicked;
+    }
+  };
+}
+
+var practiceFeedback = {
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: function () {
+    var last = jsPsych.data.get().last(1).values()[0];
+    if (last.cond !== 'none' && last.timed_out) {
+      return '<div style="color:#c0392b;font-size:26px">漏掉了，请再快点</div>';
+    }
+    return last.correct
+      ? '<div style="color:#27ae60;font-size:26px">正确</div>'
+      : '<div style="color:#c0392b;font-size:26px">错误</div>';
+  },
+  trial_duration: 800,
+  choices: "NO_KEYS"
+};
+
+var instr1 = {
+  type: jsPsychHtmlButtonResponse,
+  stimulus: '<div style="max-width:720px;text-align:left;line-height:2">' +
+    '<h3>欢迎参加本实验</h3>' +
+    '<p>屏幕上会依次出现一瓶<b>茶饮</b>的图片。</p>' +
+    '<p style="font-size:22px">看到图片上有红色的<b>「低糖」标签</b> → 立刻点下方<b>「有低糖」</b>按钮；<br>' +
+    '没有标签 → <b>不点</b>，等它自动翻页。</p>' +
+    '<p>请<b>又快又准</b>。每张图只停留约 2 秒。</p></div>',
+  choices: ['继续']
+};
+
+var instr2 = {
+  type: jsPsychHtmlButtonResponse,
+  stimulus: '<div style="max-width:720px;text-align:left;line-height:2">' +
+    '<h3>说明</h3>' +
+    '<p>先做几道<b>练习</b>（会提示对错），再进入<b>正式实验</b>。</p>' +
+    '<p>正式实验没有对错提示，请凭第一反应作答。</p></div>',
+  choices: ['开始练习']
+};
+
+var preloadImages = [IMG.left, IMG.right];
+if (HAS_NONE) preloadImages.push(IMG.none);
+var preload = { type: jsPsychPreload, images: preloadImages };
+
+/* ---------- 时间线 ---------- */
+
+var practiceStim = makeStim(true);
+var testStim = makeStim(false);
+
+var practiceBlock = {
+  timeline: [fixation, practiceStim, practiceFeedback],
+  timeline_variables: buildTrialList(N_PRAC),
+  randomize_order: true
+};
+
+var practiceEnd = {
+  type: jsPsychHtmlButtonResponse,
+  stimulus: '<h3>练习结束</h3><p>下面开始正式实验。</p>',
+  choices: ['开始']
+};
+
+var testBlock = {
+  timeline: [fixation, testStim],
+  timeline_variables: buildTrialList(N_TEST),
+  randomize_order: true
+};
+
+var thanks = {
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: '<h3>实验结束，感谢参与！</h3><p>数据文件正在下载，请保存好。</p>',
+  trial_duration: 2000,
+  choices: "NO_KEYS"
+};
+
+jsPsych.run([instr1, instr2, preload, practiceBlock, practiceEnd, testBlock, thanks]);
+</script>
+</body>
+</html>
