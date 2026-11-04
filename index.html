@@ -46,7 +46,9 @@ function getParam(name, fallback) {
   var p = new URLSearchParams(window.location.search);
   return p.has(name) ? p.get(name) : fallback;
 }
-var SUBJECT_ID = getParam('id', '');
+// 被试编号：链接带 ?id= 就用指定的（方便你自己测试/对号）；否则自动生成唯一编号，无需换链接
+var SUBJECT_ID = getParam('id', '') ||
+  ('P' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6));
 
 function buildTrialList(counts) {
   var defs = {
