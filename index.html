@@ -29,14 +29,14 @@ var IMG = {
   none:  '无标签.png'      // go/no-go 的"不点"试次，非常重要，务必补做
 };
 
-// 还没有"无标签.png"前先设 false（此时每张图都有标签，先测左/右逻辑）；
-// 补好图后改成 true，加入"无标签"的不点试次（防止被试看到就点）
-var HAS_NONE = false;
+// true = 加入"无标签"的不点试次（防止被试看到就点）
+var HAS_NONE = true;
 
 var N_TEST = { left: 20, right: 20, none: HAS_NONE ? 20 : 0 };  // 正式试次
 var N_PRAC = { left: 2,  right: 2,  none: HAS_NONE ? 2 : 0 };    // 练习试次
 var FIXATION_MS = 500;     // 注视点时长(ms)
 var TIMEOUT_MS  = 2000;    // 图片停留时长(ms)，2秒内不点=视为"没看到"
+
 /* ============================================================ */
 
 function getParam(name, fallback) {
@@ -62,6 +62,7 @@ function buildTrialList(counts) {
 
 var jsPsych = initJsPsych({
   on_finish: function () {
+    // 实验结束自动下载 CSV，被试保存后发给你
     jsPsych.data.get().localSave('csv', '低糖实验数据_' + SUBJECT_ID + '.csv');
   }
 });
