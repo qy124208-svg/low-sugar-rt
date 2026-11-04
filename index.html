@@ -24,9 +24,9 @@
 <script>
 /* ==================== 配置区（只需改这里） ==================== */
 var IMG = {
-  left:  '减糖图标左边.png',
-  right: '减糖图标右边.png',
-  none:  '无标签.png'      // go/no-go 的"不点"试次，非常重要，务必补做
+  left:  '减糖图标左边.jpg',
+  right: '减糖图标右边.jpg',
+  none:  '无标签.jpg'      // go/no-go 的"不点"试次，非常重要，务必补做
 };
 
 // true = 加入"无标签"的不点试次（防止被试看到就点）
@@ -172,7 +172,14 @@ var instr2 = {
 
 var preloadImages = [IMG.left, IMG.right];
 if (HAS_NONE) preloadImages.push(IMG.none);
-var preload = { type: jsPsychPreload, images: preloadImages };
+var preload = {
+  type: jsPsychPreload,
+  images: preloadImages,
+  show_progress_bar: true,      // 显示加载进度，避免空白等待像"卡死"
+  continue_after_error: true,   // 某张图加载失败也不卡住
+  max_load_time: 10000,         // 最多等 10 秒就继续
+  message: '正在加载图片，请稍候…'
+};
 
 /* ---------- 时间线 ---------- */
 
